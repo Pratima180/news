@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake News Classifier</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .card {
+            background-color: white;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            max-width: 90%;
+            width: 700px;
+        }
+        #result-box {
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            padding: 1rem;
+        }
+        .result-fake {
+            background-color: #ffcccc;
+            color: #cc0000;
+        }
+        .result-real {
+            background-color: #ccffcc;
+            color: #008000;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card p-8 m-4 rounded-xl">
+    <h1 class="text-3xl font-bold text-gray-800 mb-2">📰 Fake News Detector</h1>
+    <p class="text-gray-600 mb-6">Paste the text of a news article below to check if it is Real or Fake.</p>
+    
+    <!-- Input Area -->
+    <textarea id="articleText" 
+              class="w-full h-40 p-4 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 transition duration-150 ease-in-out resize-none" 
+              placeholder="Paste the full article text here..."
+    ></textarea>
+
+    <!-- Button -->
+    <button id="predictButton" 
+            class="w-full bg-indigo-600 text-white py-3 mt-4 rounded-lg font-semibold hover:bg-indigo-700 transition duration-150 ease-in-out shadow-lg shadow-indigo-300/50"
+    >
+        Analyze News
+    </button>
+
+    <!-- Result Box -->
+    <div id="result-box" class="text-gray-700 border-2 border-gray-200">
+        The result will appear here.
+    </div>
+</div>
+
+<script>
+    const articleText = document.getElementById('articleText');
+    const predictButton = document.getElementById('predictButton');
+    const resultBox = document.getElementById('result-box');
+    
+    // --- Step 1: Backend API Endpoint (Must match the port in app.py: 5001) ---
+    const PREDICT_API_URL = 'http://127.0.0.1:5001/predict'; 
+
+    // --- Step 2: Handle Button Click ---
+    predictButton.addEventListener('click', async () => {
+        const text = articleText.value.trim();
+        
+        if (text.length < 50) {
+            resultBox.innerHTML = "Please enter a longer article (at least 50 characters).";
+            resultBox.className = 'result-fake';
+            return;
+        }
+
+        // Show Loading State
+        resultBox.className = 'text-gray-700 border-2 border-gray-200';
+        resultBox.innerHTML = '<div class="flex items-center space-x-2"><svg class="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Analyzing...</span></div>';
+
+        // --- Step 3: Send Data to Backend ---
+        try {
+            const response = await fetch(PREDICT_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ article: text })
+            });
+
+            if (!response.ok) {
+                // If the response is not OK (e.g., 400 or 500)
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const prediction = data.prediction; // 0 for Fake, 1 for Real
+
+            // --- Step 4: Display Result ---
+            if (prediction === 1) {
+                resultBox.innerHTML = '✅ REAL NEWS';
+                resultBox.className = 'result-real';
+            } else {
+                resultBox.innerHTML = '🚨 FAKE NEWS';
+                resultBox.className = 'result-fake';
+            }
+
+        } catch (error) {
+            console.error("Prediction Error:", error);
+            // Display a user-friendly error message if server is not running or other error occurs
+            resultBox.innerHTML = '❌ Server Error: Ensure Python backend is running on 127.0.0.1:5001.';
+            resultBox.className = 'result-fake';
+        }
+    });
+
+</script>
+
+</body>
+</html>
