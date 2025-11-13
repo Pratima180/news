@@ -1,7 +1,7 @@
 # app.py
-# Hybrid Fake News Detector
-# Layers: Google Fact Check -> Zero-shot AI -> Source Credibility
-# Developer: (your name)
+# Hybrid Fake News Detector (Render-Safe)
+# Google Fact Check + HF API Zero-Shot + Source Credibility
+# No Torch, No Local Models → Works on Render Free Tier
 
 from flask import Flask, render_template, request
 import requests
@@ -10,211 +10,120 @@ from urllib.parse import urlparse
 import json
 import re
 
-# Optional: torch import (transformers pipeline will import/require it)
-try:
-    import torch
-except Exception:
-    torch = None
-
-from transformers import pipeline
-
 app = Flask(__name__, template_folder="./templates", static_folder="./static")
 
 # -----------------------
-# Config: Google API (use env var)
+# API KEYS
 # -----------------------
-API_KEY = os.environ.get("GOOGLE_FACTCHECK_API_KEY", "")  # set this in your environment
-API_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
+GOOGLE_API_KEY = os.environ.get("GOOGLE_FACTCHECK_API_KEY", "")
+HF_API_KEY = os.environ.get("HF_API_KEY", "")
+
+GOOGLE_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
+HF_MODEL_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"  
+HF_HEADERS = {"Authorization": f"Bearer {HF_API_KEY}"}
 
 # -----------------------
-# Load Source Credibility (simple JSON)
+# Load Source Credibility JSON
 # -----------------------
-CRED_PATH = "source_cred.json"
-if os.path.exists(CRED_PATH):
-    with open(CRED_PATH, "r", encoding="utf-8") as f:
-        try:
-            SOURCE_CRED = json.load(f)
-        except Exception:
-            SOURCE_CRED = {}
+if os.path.exists("source_cred.json"):
+    with open("source_cred.json", "r", encoding="utf-8") as f:
+        SOURCE_CRED = json.load(f)
 else:
     SOURCE_CRED = {}
 
 # -----------------------
-# Zero-shot classifier (NLI) initialization
-# -----------------------
-# Warning: large model may require a lot of RAM. You can swap model to a lighter HF model if needed.
-classifier = None
-try:
-    classifier = pipeline(
-    "zero-shot-classification",
-    model="MoritzLaurer/deberta-v3-base-zeroshot-v1"  # VERY LIGHT
-)
-
-    print("Zero-shot classifier loaded.")
-except Exception as e:
-    print("Warning: transformers pipeline could not be initialized:", e)
-    classifier = None
-
-# -----------------------
-# Utility: extract domain and credibility score (0-1)
+# Extract Domain
 # -----------------------
 def domain_from_text(text):
-    """
-    Try to extract a domain from the text. Handles explicit URLs and plain domain-like tokens.
-    Returns domain (lowercase) or None.
-    """
-    if not text:
-        return None
-
-    # try to find a URL first
     url_match = re.search(r"(https?://[^\s'\"<>]+)", text)
     if url_match:
         try:
             parsed = urlparse(url_match.group(1))
-            if parsed.netloc:
-                return parsed.netloc.lower()
-        except Exception:
+            return parsed.netloc.lower()
+        except:
             pass
 
-    # fallback: look for tokens that look like domains (example.com)
     tokens = re.findall(r"([A-Za-z0-9.-]+\.[A-Za-z]{2,6})", text)
     if tokens:
-        # return the first plausible token (lowercased, stripped)
-        return tokens[0].strip(".,'\"()[]<>").lower()
+        return tokens[0].lower()
+
     return None
 
-def credibility_score_for_domain(domain):
-    """
-    Return credibility score in 0..1 where 1 = highly credible, 0 = not credible.
-    Default neutral = 0.5
-    SOURCE_CRED should contain base domains (example.com) -> float
-    """
+# -----------------------
+# Credibility Score
+# -----------------------
+def credibility_score(domain):
     if not domain:
         return 0.5
-    try:
-        parts = domain.split(".")
-        base = ".".join(parts[-2:]) if len(parts) >= 2 else domain
-        val = SOURCE_CRED.get(base)
-        if val is None:
-            val = SOURCE_CRED.get(domain, 0.5)
-        return float(val)
-    except Exception:
-        return 0.5
+    base = ".".join(domain.split(".")[-2:])
+    return float(SOURCE_CRED.get(base, 0.5))
 
 # -----------------------
-# AI scoring (zero-shot)
+# HuggingFace Zero-Shot (Via API)
 # -----------------------
 def ai_zero_shot_score(text):
-    """
-    Returns score_fake between 0-1 representing probability that text is FAKE.
-    Uses zero-shot classifier labels ["fake","real"] and returns fake score.
-    If classifier not available, returns 0.5 (uncertain).
-    """
-    if classifier is None:
-        return 0.5
     try:
-        labels = ["fake", "real"]
-        out = classifier(text, candidate_labels=labels, hypothesis_template="This example is {}.")
-        # 'out' has 'labels' and 'scores' lists; map them robustly
-        score_map = {lab.lower(): sc for lab, sc in zip(out.get("labels", []), out.get("scores", []))}
-        # if 'fake' not present, try approximate detection
-        return float(score_map.get("fake", 0.5))
-    except Exception as e:
-        print("AI classifier error:", e)
+        payload = {
+            "inputs": text,
+            "parameters": {
+                "candidate_labels": ["fake", "real"],
+                "hypothesis_template": "This example is {}."
+            }
+        }
+        r = requests.post(HF_MODEL_URL, headers=HF_HEADERS, json=payload)
+        out = r.json()
+
+        labels = [l.lower() for l in out["labels"]]
+        scores = out["scores"]
+
+        return float(scores[labels.index("fake")])
+    except:
         return 0.5
 
 # -----------------------
-# Combine scores (fusion)
+# Combine
 # -----------------------
 def combine_scores(google_decision, ai_score, cred_score):
-    """
-    google_decision: None or "REAL"/"FAKE" (strong signal)
-    ai_score: 0..1 probability of fake (higher => more likely fake)
-    cred_score: 0..1 credibility (higher => more credible)
+    if google_decision:
+        return google_decision, (0.99 if google_decision == "FAKE" else 0.01)
 
-    Returns (label, combined_score) where combined_score in [0,1] is fake-likelihood.
-    Label thresholds:
-      combined >= 0.60 -> FAKE
-      combined <= 0.40 -> REAL
-      otherwise -> UNCERTAIN
-    If google_decision is present we trust it strongly (but still return numeric).
-    """
-    # If Google fact-check gave explicit decision, trust it (but keep a numeric score)
-    if google_decision is not None:
-        if google_decision.upper() == "FAKE":
-            return "FAKE", 0.99
-        else:
-            return "REAL", 0.01
+    combined = (0.6 * ai_score) + (0.4 * (1 - cred_score))
 
-    # If no google_decision: fuse AI and credibility
-    # cred_score: higher => more credible => less likely fake
-    # We'll use a weighted average: ai contributes more than domain credibility
-    try:
-        ai = float(ai_score)
-    except Exception:
-        ai = 0.5
-    try:
-        cred = float(cred_score)
-    except Exception:
-        cred = 0.5
-
-    # Weighted fusion (tunable):
-    # - AI (zero-shot) weight = 0.6
-    # - Domain credibility (inverted) weight = 0.4
-    combined = (0.6 * ai) + (0.4 * (1.0 - cred))  # higher => more fake
-
-    # clamp
-    combined = max(0.0, min(1.0, combined))
-
-    if combined >= 0.60:
-        label = "FAKE"
-    elif combined <= 0.40:
-        label = "REAL"
+    if combined >= 0.6:
+        return "FAKE", combined
+    elif combined <= 0.4:
+        return "REAL", combined
     else:
-        label = "UNCERTAIN"
-
-    return label, round(combined, 3)
+        return "UNCERTAIN", combined
 
 # -----------------------
-# Google Fact Check helper
+# Google Fact Check
 # -----------------------
-def query_google_factcheck(text):
-    """
-    Query Google Fact Check API with the given text.
-    Returns a dict with keys {rating, publisher, review_url} or None if nothing found.
-    """
-    if not API_KEY:
-        print("Google FactCheck API key not set (set GOOGLE_FACTCHECK_API_KEY env var).")
+def google_fact_check(text):
+    if not GOOGLE_API_KEY:
         return None
 
-    params = {"query": text, "key": API_KEY}
+    params = {"query": text, "key": GOOGLE_API_KEY}
     try:
-        r = requests.get(API_URL, params=params, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-        claims = data.get("claims") or []
-        if len(claims) > 0:
-            # pick the claim with a review if possible
-            for claim in claims:
-                reviews = claim.get("claimReview") or []
-                if reviews:
-                    review = reviews[0]
-                    rating = review.get("textualRating") or ""
-                    pub = review.get("publisher", {}).get("name") or ""
-                    return {"rating": rating, "publisher": pub, "review_url": review.get("url", "")}
-            # fallback: no claimReview but claims exist
-            claim = claims[0]
-            return {"rating": claim.get("text", ""), "publisher": "", "review_url": ""}
-        return None
-    except Exception as e:
-        print("Google API error:", e)
+        res = requests.get(GOOGLE_URL, params=params, timeout=10).json()
+        claims = res.get("claims", [])
+        if not claims:
+            return None
+
+        review = claims[0].get("claimReview", [{}])[0]
+        return {
+            "rating": review.get("textualRating", ""),
+            "publisher": review.get("publisher", {}).get("name", ""),
+            "review_url": review.get("url", "")
+        }
+    except:
         return None
 
 # -----------------------
-# Flask routes
+# Routes
 # -----------------------
 @app.route("/")
-def home():
+def index():
     return render_template("index.html")
 
 @app.route("/predict_page")
@@ -222,59 +131,46 @@ def predict_page():
     return render_template("predict.html")
 
 @app.route("/check", methods=["POST"])
-def check_news():
-    # safe extraction of 'news' from form or JSON
-    news_text = None
-    if request.method == "POST":
-        if request.form and request.form.get("news"):
-            news_text = request.form.get("news")
+def check():
+    news = request.form.get("news", "").strip()
+    if not news:
+        return render_template("prediction.html", prediction_text="⚠ Please enter some text.")
+
+    # 1. Google Fact Check
+    fc = google_fact_check(news)
+    if fc:
+        rating = fc["rating"].lower()
+        if any(x in rating for x in ["false", "fake", "misleading", "altered"]):
+            label = "FAKE"
         else:
-            j = request.get_json(silent=True)
-            if isinstance(j, dict):
-                news_text = j.get("news")
+            label = "REAL"
 
-    if not news_text or not str(news_text).strip():
-        return render_template("prediction.html", prediction_text="⚠️ Please enter some text.")
+        result = f"""
+        <b>{label}</b><br>
+        Rating: {fc['rating']}<br>
+        Source: {fc['publisher']}<br>
+        <a href='{fc['review_url']}' target='_blank'>Fact-check link</a>
+        """
+        return render_template("prediction.html", prediction_text=result)
 
-    text = str(news_text).strip()
+    # 2. AI + Credibility
+    ai = ai_zero_shot_score(news)
+    domain = domain_from_text(news)
+    cred = credibility_score(domain)
 
-    # 1) Google Fact Check
-    g = query_google_factcheck(text)
-    if g:
-        rating = (g.get("rating") or "").lower()
-        # look for common negative tokens to flag as FAKE
-        if any(tok in rating for tok in ["false", "fake", "misleading", "altered", "pants-on-fire", "not true"]):
-            final_label = "FAKE"
-        else:
-            final_label = "REAL"
-        result_html = (
-            f"<b>{final_label}</b><br>"
-            f"Rating: {g.get('rating') or 'N/A'}<br>"
-            f"Source: {g.get('publisher') or 'N/A'}<br>"
-            f"<a href='{g.get('review_url') or '#'}' target='_blank'>Fact-check link</a>"
-        )
-        return render_template("prediction.html", prediction_text=result_html)
+    label, score = combine_scores(None, ai, cred)
 
-    # 2) No Google result -> AI + Source credibility
-    ai_score = ai_zero_shot_score(text)
-    domain = domain_from_text(text)
-    cred = credibility_score_for_domain(domain)
+    result = f"""
+    <b>{label}</b><br>
+    AI-Fake Score: {round(ai, 3)}<br>
+    Domain: {domain or 'Unknown'} (cred: {round(cred, 2)})<br>
+    Hybrid Score: {round(score, 3)}
+    """
 
-    label, combined = combine_scores(None, ai_score, cred)
-
-    details = (
-        f"<b>{label}</b><br>"
-        f"AI-fake-score: {round(ai_score, 3)}<br>"
-        f"Source domain: {domain or 'Unknown'} (credibility: {round(cred,3)})<br>"
-        f"Hybrid-score (fake-likelihood): {combined}"
-    )
-
-    return render_template("prediction.html", prediction_text=details)
+    return render_template("prediction.html", prediction_text=result)
 
 # -----------------------
-# Run App
+# Run
 # -----------------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    # debug should be False in production
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(debug=True)

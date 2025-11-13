@@ -1,6 +1,3 @@
 flask
 requests
 gunicorn
-transformers
-torch==2.5.1
-
