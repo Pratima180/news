@@ -45,7 +45,11 @@ else:
 # Warning: large model may require a lot of RAM. You can swap model to a lighter HF model if needed.
 classifier = None
 try:
-    classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+    classifier = pipeline(
+    "zero-shot-classification",
+    model="MoritzLaurer/deberta-v3-base-zeroshot-v1"  # VERY LIGHT
+)
+
     print("Zero-shot classifier loaded.")
 except Exception as e:
     print("Warning: transformers pipeline could not be initialized:", e)
