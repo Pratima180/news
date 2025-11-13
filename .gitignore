@@ -1,0 +1,8 @@
+.venv/
+nltk_data/
+__pycache__/
+*.pyc
+*.pkl
+*.zip
+.ipynb_checkpoints/
+*.ipynb

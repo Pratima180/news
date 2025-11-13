@@ -3,84 +3,74 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>News Prediction — Pratima Sahu</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <title>Fake News Detector — Result</title>
+
   <style>
     body {
-      font-family: 'Poppins', sans-serif;
-      background: #f1f5f9;
+      background: #eef2ff;
+      font-family: "Poppins", sans-serif;
       display: flex;
-      flex-direction: column;
+      justify-content: center;
       align-items: center;
       min-height: 100vh;
-      padding: 40px;
+      margin: 0;
+      padding: 20px;
     }
-    h1 { color: #059669; margin-bottom: 15px; }
-    textarea {
-      width: 100%;
-      max-width: 600px;
-      height: 150px;
-      border-radius: 10px;
-      border: none;
-      outline: none;
-      padding: 15px;
-      font-size: 15px;
+
+    .result-card {
       background: white;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+      padding: 35px 40px;
+      text-align: center;
+      max-width: 550px;
+      width: 95%;
+      border-top: 6px solid #10b981;
+      animation: fadeIn 0.6s ease-in-out;
     }
-    button {
-      margin-top: 15px;
-      padding: 10px 25px;
-      background: #059669;
-      color: #fff;
-      border: none;
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h2 {
+      font-size: 24px;
+      color: #1e293b;
+      font-weight: 700;
+      line-height: 1.5;
+      margin-bottom: 25px;
+      word-break: break-word;
+    }
+
+    .btn {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 12px 20px;
       border-radius: 8px;
+      text-decoration: none;
+      background: #2563eb;
+      color: #fff;
       font-weight: 600;
-      cursor: pointer;
+      transition: 0.3s;
     }
-    button:hover { background: #047857; }
-    .result {
-      margin-top: 20px;
-      font-size: 18px;
-      color: #111;
-      background: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      display: none;
+
+    .btn:hover {
+      background: #1e40af;
     }
   </style>
 </head>
+
 <body>
-  <h1>Fake News Prediction</h1>
-  <textarea id="newsText" placeholder="Paste or type news content..."></textarea>
-  <button onclick="analyzeNews()">Check News</button>
-  <div class="result" id="resultBox"></div>
 
-  <script>
-    async function analyzeNews() {
-      const text = document.getElementById("newsText").value.trim();
-      const box = document.getElementById("resultBox");
-      if (!text) {
-        alert("Please enter some text first!");
-        return;
-      }
-      box.style.display = "block";
-      box.textContent = "Analyzing... ⏳";
+  <div class="result-card">
 
-      try {
-        const res = await fetch("/predict", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text })
-        });
-        const data = await res.json();
-        box.style.color = data.label === "FAKE" ? "#b91c1c" : "#065f46";
-        box.innerHTML = `<b>Prediction:</b> ${data.label}<br><b>Confidence:</b> ${data.confidence}%`;
-      } catch {
-        box.textContent = "Error: Unable to connect to server!";
-      }
-    }
-  </script>
+    <!-- SHOW HYBRID OUTPUT -->
+    <h2>{{ prediction_text | safe }}</h2>
+
+    <a href="/predict_page" class="btn">🔁 Check Another News</a>
+
+  </div>
+
 </body>
 </html>
