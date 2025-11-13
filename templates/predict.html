@@ -15,9 +15,33 @@
             padding: 0;
         }
 
+        .top-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 20px 40px;
+        }
+
+        .top-logo img {
+            width: 50px;
+        }
+
+        .top-logo h2 {
+            font-size: 22px;
+            color: #059669;
+            font-weight: 700;
+        }
+
+        .main-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 90%;
+            margin: 20px auto;
+        }
+
         .container {
             width: 60%;
-            margin: 60px auto;
             background: white;
             padding: 35px;
             border-radius: 12px;
@@ -60,6 +84,12 @@
             background-color: #059669;
         }
 
+        .side-image img {
+            width: 260px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 12px rgba(0,0,0,0.12);
+        }
+
         .result-box {
             background: #f8fafc;
             padding: 20px;
@@ -69,32 +99,60 @@
             box-shadow: 0px 2px 10px rgba(0,0,0,0.05);
         }
 
-        .result-box h2 {
-            color: #1e293b;
-            font-size: 22px;
+        footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        footer img {
+            width: 100px;
+            opacity: 0.7;
+            margin-bottom: 6px;
         }
     </style>
 </head>
 
 <body>
 
-<div class="container">
-    <h1>Hybrid Fake News Verification 🔍</h1>
-
-    <!-- FORM -->
-    <!-- FIXED: action="/check" -->
-    <form action="/check" method="POST">
-        <textarea name="news" placeholder="Paste the news text or link here..." required></textarea>
-        <button type="submit">Verify Now</button>
-    </form>
-
-    <!-- RESULT -->
-    {% if prediction_text %}
-    <div class="result-box">
-        <h2>{{ prediction_text | safe }}</h2>
-    </div>
-    {% endif %}
+<!-- TOP LOGO -->
+<div class="top-logo">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo">
+    <h2>Hybrid Fake News Verification</h2>
 </div>
+
+<!-- MAIN CONTENT AREA -->
+<div class="main-area">
+
+    <!-- FORM AREA -->
+    <div class="container">
+        <h1>Verify News 🔍</h1>
+
+        <form action="/check" method="POST">
+            <textarea name="news" placeholder="Paste the news text or link here..." required></textarea>
+            <button type="submit">Verify Now</button>
+        </form>
+
+        {% if prediction_text %}
+        <div class="result-box">
+            <h2>{{ prediction_text | safe }}</h2>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- SIDE IMAGE -->
+    <div class="side-image">
+        <img src="{{ url_for('static', filename='images/fake_news_example.jpg') }}" alt="Fake News Illustration">
+    </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer>
+    <img src="{{ url_for('static', filename='images/student.jpg') }}" alt="Student Image">
+    <p>Developed by <b>Pratima Sahu</b> • EEIoT • MITS Gwalior</p>
+</footer>
 
 </body>
 </html>

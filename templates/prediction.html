@@ -10,11 +10,38 @@
       background: #eef2ff;
       font-family: "Poppins", sans-serif;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
       min-height: 100vh;
       margin: 0;
       padding: 20px;
+    }
+
+    /* Top Logo */
+    .top-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .top-logo img {
+      width: 55px;
+    }
+
+    .top-logo h2 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #059669;
+    }
+
+    /* Main Card Area */
+    .content-area {
+      display: flex;
+      gap: 30px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
     }
 
     .result-card {
@@ -43,6 +70,13 @@
       word-break: break-word;
     }
 
+    /* Right Side Image */
+    .side-image img {
+      width: 250px;
+      border-radius: 12px;
+      box-shadow: 0px 4px 14px rgba(0,0,0,0.15);
+    }
+
     .btn {
       display: inline-block;
       margin-top: 30px;
@@ -58,19 +92,52 @@
     .btn:hover {
       background: #1e40af;
     }
+
+    /* Footer */
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    footer img {
+      width: 110px;
+      opacity: 0.7;
+      margin-bottom: 8px;
+    }
   </style>
 </head>
 
 <body>
 
-  <div class="result-card">
+  <!-- Top Logo -->
+  <div class="top-logo">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo">
+    <h2>Hybrid Fake News Detector</h2>
+  </div>
 
-    <!-- SHOW HYBRID OUTPUT -->
-    <h2>{{ prediction_text | safe }}</h2>
+  <!-- Main Content Area -->
+  <div class="content-area">
 
-    <a href="/predict_page" class="btn">🔁 Check Another News</a>
+    <!-- Result Card -->
+    <div class="result-card">
+      <h2>{{ prediction_text | safe }}</h2>
+      <a href="/predict_page" class="btn">🔁 Check Another News</a>
+    </div>
+
+    <!-- Side Illustration Image -->
+    <div class="side-image">
+      <img src="{{ url_for('static', filename='images/fake_news_example.jpg') }}" alt="Illustration">
+    </div>
 
   </div>
+
+  <!-- Footer -->
+  <footer>
+    <img src="{{ url_for('static', filename='images/student.jpg') }}" alt="Student">
+    <p>Developed by <b>Pratima Sahu</b> • EEIoT • MITS Gwalior</p>
+  </footer>
 
 </body>
 </html>

@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hybrid Fake News Detection — Pratima Sahu</title>
 
-  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
     * {
-      box-sizing: border-box;
       margin: 0;
       padding: 0;
+      box-sizing: border-box;
     }
 
     body {
@@ -26,9 +25,9 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background-color: #fff;
       padding: 15px 70px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       position: sticky;
       top: 0;
       z-index: 100;
@@ -41,20 +40,19 @@
     }
 
     .logo img {
-      width: 40px;
+      width: 50px;
     }
 
     .logo h2 {
-      font-weight: 600;
       color: #059669;
+      font-weight: 700;
     }
 
     .nav-links a {
+      margin-left: 25px;
       text-decoration: none;
       color: #2c3e50;
       font-weight: 500;
-      margin-left: 25px;
-      transition: color 0.2s;
     }
 
     .nav-links a:hover {
@@ -67,7 +65,7 @@
       justify-content: space-between;
       align-items: center;
       padding: 80px 70px;
-      background-color: #f8fafc;
+      background: #f8fafc;
     }
 
     .hero-text {
@@ -75,78 +73,54 @@
     }
 
     .hero-text h1 {
-      font-size: 36px;
-      color: #1e293b;
+      font-size: 38px;
       margin-bottom: 20px;
     }
 
-    .hero-text p {
-      color: #64748b;
-      line-height: 1.6;
-      margin-bottom: 25px;
-    }
-
     .hero-text button {
-      padding: 12px 28px;
-      background-color: #10b981;
-      color: white;
+      padding: 12px 25px;
+      background: #059669;
+      color: #fff;
       border: none;
       border-radius: 6px;
-      font-size: 15px;
-      font-weight: 600;
+      margin-top: 20px;
       cursor: pointer;
-      transition: 0.3s;
-    }
-
-    .hero-text button:hover {
-      background-color: #059669;
+      font-size: 16px;
+      font-weight: 600;
     }
 
     .hero-img img {
-      width: 420px;
+      width: 450px;
+      border-radius: 10px;
     }
 
+    /* Footer */
     footer {
-      background-color: #fff;
-      padding: 20px;
+      background: #fff;
       text-align: center;
-      color: #64748b;
-      font-size: 14px;
+      padding: 25px;
+      margin-top: 40px;
       box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
-      margin-top: 50px;
     }
 
-    /* Responsive */
-    @media (max-width: 900px) {
-      .hero {
-        flex-direction: column;
-        text-align: center;
-        padding: 60px 20px;
-      }
-      .hero-text {
-        max-width: 100%;
-      }
-      .hero-img img {
-        width: 300px;
-        margin-top: 30px;
-      }
-      nav {
-        flex-direction: column;
-        gap: 10px;
-        padding: 15px 25px;
-      }
+    footer img {
+      width: 120px;
+      display: block;
+      margin: auto;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- Navbar -->
+  <!-- NAVBAR -->
   <nav>
     <div class="logo">
-      <img src="/static/images/logo.png" alt="Logo">
+      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo">
       <h2>Hybrid Fake News Detection</h2>
     </div>
+
     <div class="nav-links">
       <a href="/">Home</a>
       <a href="/predict_page">Verify News</a>
@@ -155,34 +129,31 @@
     </div>
   </nav>
 
-  <!-- Hero Section -->
+  <!-- HERO SECTION -->
   <section class="hero">
     <div class="hero-text">
       <h1>Hybrid Fake News Detection System</h1>
 
       <p>
-        A powerful real-time News Verification System using a Hybrid Model:
-        <b>Google Fact Check API + Artificial Intelligence + Source Credibility Analysis.</b>
-        <br><br>
-        Check any news — including breaking news — instantly.  
-        If Google Fact Check results are available, they are used.  
-        Else our AI + credibility engine predicts whether the news is Likely Real, Likely Fake,  
-        or Uncertain.
+        A powerful real-time system using <b>Google Fact Check API + AI + Source Credibility</b>.
+        Verify any breaking news instantly — Real, Fake, or Uncertain.
       </p>
 
       <button onclick="window.location.href='/predict_page'">Verify News Now</button>
     </div>
 
     <div class="hero-img">
-      <img src="{{ url_for('static', filename='images/logo.png') }}" 
-     alt="Logo" 
-     style="width:40px;">
+      <!-- Fake News Main Image -->
+      <img src="{{ url_for('static', filename='images/fake_news_example.jpg') }}" alt="Fake News Example">
     </div>
   </section>
 
-  <!-- Footer -->
+  <!-- FOOTER -->
   <footer>
-    Developed by <b>Pratima Sahu</b> | Hybrid Fake News Detection Project | EEIoT, MITS Gwalior
+    <!-- Student Image -->
+    <img src="{{ url_for('static', filename='images/student.jpg') }}" alt="Student">
+
+    Developed by <b>Pratima Sahu</b> | Hybrid Fake News Detection | EEIoT, MITS Gwalior
   </footer>
 
 </body>
