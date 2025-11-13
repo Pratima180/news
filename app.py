@@ -1,26 +1,27 @@
 # app.py
-# Hybrid Fake News Detector (Render-Safe)
-# Google Fact Check + HF API Zero-Shot + Source Credibility
-# No Torch, No Local Models → Works on Render Free Tier
+# Hybrid Fake News Detector (Improved Version)
+# Google Fact Check + HF API + Improved Hybrid Logic + Source Credibility
+# Fully Render-Safe (NO torch, NO transformers)
 
 from flask import Flask, render_template, request
 import requests
 import os
-from urllib.parse import urlparse
 import json
 import re
+from urllib.parse import urlparse
 
 app = Flask(__name__, template_folder="./templates", static_folder="./static")
 
 # -----------------------
-# API KEYS
+# API Keys (Render env vars)
 # -----------------------
 GOOGLE_API_KEY = os.environ.get("GOOGLE_FACTCHECK_API_KEY", "")
 HF_API_KEY = os.environ.get("HF_API_KEY", "")
 
 GOOGLE_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
-HF_MODEL_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"  
+HF_MODEL_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"
 HF_HEADERS = {"Authorization": f"Bearer {HF_API_KEY}"}
+
 
 # -----------------------
 # Load Source Credibility JSON
@@ -30,6 +31,7 @@ if os.path.exists("source_cred.json"):
         SOURCE_CRED = json.load(f)
 else:
     SOURCE_CRED = {}
+
 
 # -----------------------
 # Extract Domain
@@ -49,6 +51,7 @@ def domain_from_text(text):
 
     return None
 
+
 # -----------------------
 # Credibility Score
 # -----------------------
@@ -58,43 +61,36 @@ def credibility_score(domain):
     base = ".".join(domain.split(".")[-2:])
     return float(SOURCE_CRED.get(base, 0.5))
 
+
 # -----------------------
-# HuggingFace Zero-Shot (Via API)
+# AI Zero-Shot via HuggingFace API
 # -----------------------
 def ai_zero_shot_score(text):
-    try:
-        payload = {
-            "inputs": text,
-            "parameters": {
-                "candidate_labels": ["fake", "real"],
-                "hypothesis_template": "This example is {}."
-            }
+
+    # Expand news context for better prediction accuracy
+    claim_text = f"Claim: {text}. This statement refers to an event or news update."
+
+    payload = {
+        "inputs": claim_text,
+        "parameters": {
+            "candidate_labels": ["fake", "real"],
+            "hypothesis_template": "This news is {}."
         }
-        r = requests.post(HF_MODEL_URL, headers=HF_HEADERS, json=payload)
+    }
+
+    try:
+        r = requests.post(HF_MODEL_URL, headers=HF_HEADERS, json=payload, timeout=20)
         out = r.json()
 
         labels = [l.lower() for l in out["labels"]]
         scores = out["scores"]
 
-        return float(scores[labels.index("fake")])
+        fake_score = float(scores[labels.index("fake")])
+        return fake_score
+
     except:
         return 0.5
 
-# -----------------------
-# Combine
-# -----------------------
-def combine_scores(google_decision, ai_score, cred_score):
-    if google_decision:
-        return google_decision, (0.99 if google_decision == "FAKE" else 0.01)
-
-    combined = (0.6 * ai_score) + (0.4 * (1 - cred_score))
-
-    if combined >= 0.6:
-        return "FAKE", combined
-    elif combined <= 0.4:
-        return "REAL", combined
-    else:
-        return "UNCERTAIN", combined
 
 # -----------------------
 # Google Fact Check
@@ -104,6 +100,7 @@ def google_fact_check(text):
         return None
 
     params = {"query": text, "key": GOOGLE_API_KEY}
+
     try:
         res = requests.get(GOOGLE_URL, params=params, timeout=10).json()
         claims = res.get("claims", [])
@@ -119,6 +116,35 @@ def google_fact_check(text):
     except:
         return None
 
+
+# -----------------------
+# Improved Hybrid Logic (NO UNCERTAIN)
+# -----------------------
+def improved_final_label(ai, cred, google=None):
+
+    # If google says fake or true → trust 100%
+    if google:
+        rating = google.lower()
+        if any(x in rating for x in ["false", "fake", "misleading", "altered"]):
+            return "FAKE"
+        return "REAL"
+
+    # Hybrid score
+    hybrid = 0.6 * ai + 0.4 * (1 - cred)
+
+    # Clear-cut thresholds
+    if hybrid >= 0.55:
+        return "FAKE"
+    elif hybrid <= 0.45:
+        return "REAL"
+
+    # Tie-breaker using AI
+    if ai > 0.5:
+        return "FAKE (Likely)"
+    else:
+        return "REAL (Likely)"
+
+
 # -----------------------
 # Routes
 # -----------------------
@@ -126,25 +152,23 @@ def google_fact_check(text):
 def index():
     return render_template("index.html")
 
+
 @app.route("/predict_page")
 def predict_page():
     return render_template("predict.html")
 
+
 @app.route("/check", methods=["POST"])
 def check():
+
     news = request.form.get("news", "").strip()
     if not news:
-        return render_template("prediction.html", prediction_text="⚠ Please enter some text.")
+        return render_template("prediction.html", prediction_text="⚠ Please enter some news text.")
 
     # 1. Google Fact Check
     fc = google_fact_check(news)
     if fc:
-        rating = fc["rating"].lower()
-        if any(x in rating for x in ["false", "fake", "misleading", "altered"]):
-            label = "FAKE"
-        else:
-            label = "REAL"
-
+        label = improved_final_label(None, None, fc["rating"])
         result = f"""
         <b>{label}</b><br>
         Rating: {fc['rating']}<br>
@@ -153,21 +177,20 @@ def check():
         """
         return render_template("prediction.html", prediction_text=result)
 
-    # 2. AI + Credibility
+    # 2. AI + credibility
     ai = ai_zero_shot_score(news)
     domain = domain_from_text(news)
     cred = credibility_score(domain)
 
-    label, score = combine_scores(None, ai, cred)
+    label = improved_final_label(ai, cred)
 
     result = f"""
     <b>{label}</b><br>
     AI-Fake Score: {round(ai, 3)}<br>
     Domain: {domain or 'Unknown'} (cred: {round(cred, 2)})<br>
-    Hybrid Score: {round(score, 3)}
     """
-
     return render_template("prediction.html", prediction_text=result)
+
 
 # -----------------------
 # Run
