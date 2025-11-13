@@ -1,5 +1,6 @@
-Flask
+flask
 requests
 gunicorn
 transformers
-torch==2.0.0 --index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1
+
