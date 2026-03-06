@@ -15,7 +15,7 @@ app = Flask(__name__, template_folder="./templates", static_folder="./static")
 # -----------------------
 # API Keys (Render env vars)
 # -----------------------
-GOOGLE_API_KEY = os.environ.get("GOOGLE_FACTCHECK_API_KEY", "")
+GOOGLE_API_KEY = os.environ.get("AIzaSyCQh0eeyvi4TpCQYKZ4R-NN3cPzRb5s8JE", "")
 HF_API_KEY = os.environ.get("HF_API_KEY", "")
 
 GOOGLE_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
