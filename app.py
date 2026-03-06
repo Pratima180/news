@@ -16,7 +16,7 @@ app = Flask(__name__, template_folder="./templates", static_folder="./static")
 # API Keys (Render env vars)
 # -----------------------
 GOOGLE_API_KEY = os.environ.get("AIzaSyCQh0eeyvi4TpCQYKZ4R-NN3cPzRb5s8JE", "")
-HF_API_KEY = os.environ.get("AIzaSyCQh0eeyvi4TpCQYKZ4R-NN3cPzRb5s8JE", "")
+HF_API_KEY = os.environ.get("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", "")
 
 GOOGLE_URL = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
 HF_MODEL_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"
